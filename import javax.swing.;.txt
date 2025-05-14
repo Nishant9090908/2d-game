@@ -1,0 +1,144 @@
+import javax.swing.*;
+import java.awt.*;
+import java.awt.event.KeyEvent;
+import java.awt.event.KeyListener;
+
+public class MovingSquareGame extends JPanel implements KeyListener, Runnable {
+
+    private int squareX = 50;
+    private int squareY = 50;
+    private final int squareSize = 30;
+    private final int moveSpeed = 5;
+    private boolean up, down, left, right;
+    private Thread gameThread;
+    private volatile boolean running = false; // Use volatile for thread safety
+    private final int FPS = 60;
+    private final long period = 1000000000 / FPS; // Period in nanoseconds
+
+    public MovingSquareGame() {
+        setPreferredSize(new Dimension(400, 300));
+        setBackground(Color.WHITE);
+        setFocusable(true);
+        addKeyListener(this);
+    }
+
+    public synchronized void startGameThread() {
+        if (running) {
+            return;
+        }
+        running = true;
+        gameThread = new Thread(this);
+        gameThread.start();
+    }
+
+    public synchronized void stopGameThread() {
+        if (!running) {
+            return;
+        }
+        running = false;
+        try {
+            gameThread.join(); // Wait for the thread to finish
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+    }
+
+    @Override
+    public void run() {
+        long beginTime;
+        long timeDiff;
+        long sleepTime;
+
+        while (running) {
+            beginTime = System.nanoTime();
+
+            update();
+            repaint();
+
+            timeDiff = System.nanoTime() - beginTime;
+            sleepTime = period - timeDiff;
+
+            if (sleepTime > 0) {
+                try {
+                    Thread.sleep(sleepTime / 1000000); // Convert nanoseconds to milliseconds
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+            } else {
+                // If update and render take longer than the period, we're lagging
+                // You might want to add some logging or handling here in a more complex game
+            }
+        }
+    }
+
+    public void update() {
+        if (up) squareY -= moveSpeed;
+        if (down) squareY += moveSpeed;
+        if (left) squareX -= moveSpeed;
+        if (right) squareX += moveSpeed;
+
+        // Keep the square within the bounds of the panel
+        if (squareX < 0) squareX = 0;
+        if (squareY < 0) squareY = 0;
+        if (squareX > getWidth() - squareSize) squareX = getWidth() - squareSize;
+        if (squareY > getHeight() - squareSize) squareY = getHeight() - squareSize;
+    }
+
+    @Override
+    protected void paintComponent(Graphics g) {
+        super.paintComponent(g);
+        g.setColor(Color.BLUE);
+        g.fillRect(squareX, squareY, squareSize, squareSize);
+        // Optional: Add some visual feedback for key presses
+        g.setColor(Color.BLACK);
+        String debugText = "X: " + squareX + ", Y: " + squareY;
+        if (up) debugText += " UP";
+        if (down) debugText += " DOWN";
+        if (left) debugText += " LEFT";
+        if (right) debugText += " RIGHT";
+        g.drawString(debugText, 10, getHeight() - 10);
+    }
+
+    @Override
+    public void keyTyped(KeyEvent e) {
+        // Not used in this game
+    }
+
+    @Override
+    public void keyPressed(KeyEvent e) {
+        int key = e.getKeyCode();
+        if (key == KeyEvent.VK_UP) up = true;
+        if (key == KeyEvent.VK_DOWN) down = true;
+        if (key == KeyEvent.VK_LEFT) left = true;
+        if (key == KeyEvent.VK_RIGHT) right = true;
+    }
+
+    @Override
+    public void keyReleased(KeyEvent e) {
+        int key = e.getKeyCode();
+        if (key == KeyEvent.VK_UP) up = false;
+        if (key == KeyEvent.VK_DOWN) down = false;
+        if (key == KeyEvent.VK_LEFT) left = false;
+        if (key == KeyEvent.VK_RIGHT) right = false;
+    }
+
+    public static void main(String[] args) {
+        JFrame frame = new JFrame("Moving Square Game");
+        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        MovingSquareGame gamePanel = new MovingSquareGame();
+        frame.add(gamePanel);
+        frame.pack();
+        frame.setLocationRelativeTo(null);
+        frame.setVisible(true);
+
+        // Start and stop the game thread properly
+        gamePanel.startGameThread();
+        frame.addWindowListener(new java.awt.event.WindowAdapter() {
+            @Override
+            public void windowClosing(java.awt.event.WindowEvent windowEvent) {
+                gamePanel.stopGameThread();
+                System.exit(0); // Ensure the application exits
+            }
+        });
+    }
+}
