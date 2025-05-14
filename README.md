@@ -1,2 +1,3 @@
 # 2d-game
 A basic 2D game using java only...
+Made by a compete begginer who us on his journey to learn java and this is one of the first steps..
